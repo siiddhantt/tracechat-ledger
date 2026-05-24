@@ -52,10 +52,10 @@ class InferenceLogRepository:
         token_total = sum(log.total_tokens or 0 for log in logs)
 
         by_model: dict[tuple[str, str], list[InferenceLog]] = defaultdict(list)
-        by_minute: dict[str, list[InferenceLog]] = defaultdict(list)
+        by_minute: dict[datetime, list[InferenceLog]] = defaultdict(list)
         for log in logs:
             by_model[(log.provider, log.model)].append(log)
-            minute = log.started_at.astimezone(UTC).replace(second=0, microsecond=0).isoformat()
+            minute = log.started_at.astimezone(UTC).replace(second=0, microsecond=0)
             by_minute[minute].append(log)
 
         models = [
@@ -69,14 +69,18 @@ class InferenceLogRepository:
             )
             for (provider, model), items in sorted(by_model.items())
         ]
-        throughput = [
-            ThroughputPoint(
-                minute=minute,
-                requests=len(items),
-                errors=sum(1 for item in items if item.status == InferenceStatus.error),
+        current_minute = datetime.now(UTC).replace(second=0, microsecond=0)
+        throughput = []
+        for offset in range(29, -1, -1):
+            minute = current_minute - timedelta(minutes=offset)
+            items = by_minute[minute]
+            throughput.append(
+                ThroughputPoint(
+                    minute=minute.isoformat(),
+                    requests=len(items),
+                    errors=sum(1 for item in items if item.status == InferenceStatus.error),
+                )
             )
-            for minute, items in sorted(by_minute.items())[-30:]
-        ]
         return DashboardSummary(
             total_requests=total,
             error_rate=round((len(errors) / total) * 100, 2) if total else 0.0,

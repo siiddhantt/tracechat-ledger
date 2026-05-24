@@ -11,7 +11,14 @@ import {
   Send,
   TriangleAlert,
 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   cancelConversation,
@@ -59,9 +66,12 @@ export default function Home() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const selectedConversation = useMemo(
-    () => conversations.find((conversation) => conversation.id === selectedId) ?? null,
+    () =>
+      conversations.find((conversation) => conversation.id === selectedId) ??
+      null,
     [conversations, selectedId],
   );
 
@@ -76,7 +86,9 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    void refresh().catch((reason: unknown) => setError(messageFromError(reason)));
+    void refresh().catch((reason: unknown) =>
+      setError(messageFromError(reason)),
+    );
   }, [refresh]);
 
   useEffect(() => {
@@ -91,6 +103,10 @@ export default function Home() {
       .then((conversation) => setMessages(conversation.messages))
       .catch((reason: unknown) => setError(messageFromError(reason)));
   }, [isStreaming, selectedId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [messages]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -131,7 +147,15 @@ export default function Home() {
                       ? { ...message, content: `${message.content}${token}` }
                       : message,
                   )
-                : [...current, draftMessage("assistant", token, new Date().toISOString(), assistantId)],
+                : [
+                    ...current,
+                    draftMessage(
+                      "assistant",
+                      token,
+                      new Date().toISOString(),
+                      assistantId,
+                    ),
+                  ],
             ),
           onDone: () => {
             setIsStreaming(false);
@@ -157,19 +181,35 @@ export default function Home() {
 
   async function handleCancel() {
     if (selectedId) {
-      await cancelConversation(selectedId).catch((reason: unknown) => setError(messageFromError(reason)));
+      await cancelConversation(selectedId).catch((reason: unknown) =>
+        setError(messageFromError(reason)),
+      );
     }
     abortRef.current?.abort();
     setIsStreaming(false);
-    await refresh().catch((reason: unknown) => setError(messageFromError(reason)));
+    await refresh().catch((reason: unknown) =>
+      setError(messageFromError(reason)),
+    );
+  }
+
+  async function handleStopStream() {
+    abortRef.current?.abort();
+    setIsStreaming(false);
+    await refresh().catch((reason: unknown) =>
+      setError(messageFromError(reason)),
+    );
   }
 
   async function handleResume() {
     if (!selectedId) {
       return;
     }
-    await resumeConversation(selectedId).catch((reason: unknown) => setError(messageFromError(reason)));
-    await refresh().catch((reason: unknown) => setError(messageFromError(reason)));
+    await resumeConversation(selectedId).catch((reason: unknown) =>
+      setError(messageFromError(reason)),
+    );
+    await refresh().catch((reason: unknown) =>
+      setError(messageFromError(reason)),
+    );
   }
 
   function startNewConversation() {
@@ -179,52 +219,63 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-[1500px] flex-col gap-4 px-4 py-4 lg:px-6">
-      <header className="flex flex-col gap-3 border-2 border-ink bg-paper p-4 shadow-sketch md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center border-2 border-ink bg-marker shadow-sketchSoft">
-              <Bot className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="font-display text-2xl font-black text-ink">TraceChat Ledger</h1>
-              <p className="text-sm font-semibold text-neutral-700">
-                Streaming chat, provider metadata, ingestion, and dashboards.
-              </p>
+    <main className="mx-auto flex min-h-screen max-w-[1500px] flex-col gap-4 px-4 py-4 lg:h-screen lg:overflow-hidden lg:px-6">
+      <header className="shrink-0 border-2 border-ink bg-paper p-4 shadow-sketch">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center border-2 border-ink bg-marker shadow-sketchSoft">
+                <Bot className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="font-display text-2xl font-black text-ink">
+                  TraceChat Ledger
+                </h1>
+                <p className="text-sm font-semibold text-neutral-700">
+                  Streaming chat, provider metadata, ingestion, and dashboards.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            aria-label="Provider"
-            className="w-40"
-            value={provider}
-            onChange={(event) => setProvider(event.target.value as ProviderName)}
-          >
-            <option value="mock">Mock</option>
-            <option value="groq">Groq</option>
-            <option value="openrouter">OpenRouter</option>
-          </Select>
-          <Input
-            aria-label="Model"
-            className="w-60"
-            placeholder={
-              provider === "groq"
-                ? "openai/gpt-oss-120b"
-                : provider === "openrouter"
-                  ? "openai/gpt-4.1-mini"
-                  : "mock/local-chat"
-            }
-            value={model}
-            onChange={(event) => setModel(event.target.value)}
-          />
-          <Button title="Refresh data" variant="secondary" size="icon" onClick={() => void refresh()}>
-            <RefreshCcw className="h-4 w-4" />
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              aria-label="Provider"
+              className="w-40"
+              value={provider}
+              onChange={(event) =>
+                setProvider(event.target.value as ProviderName)
+              }
+            >
+              <option value="mock">Mock</option>
+              <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
+            </Select>
+            <Input
+              aria-label="Model"
+              className="w-60"
+              placeholder={
+                provider === "groq"
+                  ? "openai/gpt-oss-120b"
+                  : provider === "openrouter"
+                    ? "openai/gpt-4.1-mini"
+                    : "mock/local-chat"
+              }
+              value={model}
+              onChange={(event) => setModel(event.target.value)}
+            />
+            <Button
+              title="Refresh data"
+              variant="secondary"
+              size="icon"
+              onClick={() => void refresh()}
+            >
+              <RefreshCcw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </header>
 
-      <section className="grid flex-1 gap-4 lg:grid-cols-[300px_minmax(0,1fr)_330px]">
+      <section className="grid flex-1 gap-4 lg:min-h-0 lg:overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)_330px]">
         <ConversationList
           conversations={conversations}
           selectedId={selectedId}
@@ -232,12 +283,20 @@ export default function Home() {
           onNew={startNewConversation}
         />
 
-        <Card className="sketch-panel flex min-h-[620px] flex-col">
-          <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <Card className="sketch-panel flex min-h-[520px] flex-col lg:min-h-0">
+          <CardHeader className="flex shrink-0 flex-row items-center justify-between gap-3">
             <div>
-              <CardTitle>{selectedConversation?.title ?? "New conversation"}</CardTitle>
+              <CardTitle>
+                {selectedConversation?.title ?? "New conversation"}
+              </CardTitle>
               <div className="mt-2 flex items-center gap-2">
-                <Badge tone={selectedConversation?.status === "cancelled" ? "red" : "green"}>
+                <Badge
+                  tone={
+                    selectedConversation?.status === "cancelled"
+                      ? "red"
+                      : "green"
+                  }
+                >
                   {selectedConversation?.status ?? "active"}
                 </Badge>
                 {isStreaming ? <Badge tone="blue">streaming</Badge> : null}
@@ -245,7 +304,12 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-2">
               {selectedConversation?.status === "cancelled" ? (
-                <Button title="Resume conversation" size="icon" variant="secondary" onClick={handleResume}>
+                <Button
+                  title="Resume conversation"
+                  size="icon"
+                  variant="secondary"
+                  onClick={handleResume}
+                >
                   <PlayCircle className="h-4 w-4" />
                 </Button>
               ) : (
@@ -261,23 +325,24 @@ export default function Home() {
               )}
             </div>
           </CardHeader>
-          <CardContent className="flex flex-1 flex-col gap-4">
+          <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
             {error ? (
-              <div className="flex items-start gap-2 border-2 border-ink bg-coral p-3 text-sm font-bold">
+              <div className="flex shrink-0 items-start gap-2 border-2 border-ink bg-coral p-3 text-sm font-bold">
                 <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{error}</span>
               </div>
             ) : null}
 
-            <div className="flex-1 overflow-y-auto border-2 border-ink bg-white p-4">
+            <div className="min-h-0 flex-1 overflow-y-auto border-2 border-ink bg-white p-4">
               {messages.length ? (
                 <div className="flex flex-col gap-3">
                   {messages.map((message) => (
                     <MessageBubble key={message.id} message={message} />
                   ))}
+                  <div ref={messagesEndRef} />
                 </div>
               ) : (
-                <div className="flex h-full min-h-[360px] items-center justify-center text-center">
+                <div className="flex h-full min-h-[260px] items-center justify-center text-center">
                   <div className="border-2 border-dashed border-ink bg-marker px-5 py-4 font-black">
                     Start a logged chat
                   </div>
@@ -285,25 +350,39 @@ export default function Home() {
               )}
             </div>
 
-            <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
+            <form
+              className="shrink-0 border-t-2 border-ink pt-3"
+              onSubmit={handleSubmit}
+            >
               <Textarea
                 aria-label="Message"
+                className="min-h-20"
                 placeholder="Ask about ingestion tradeoffs, scaling, or what this demo is tracking."
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                disabled={isStreaming || selectedConversation?.status === "cancelled"}
+                disabled={
+                  isStreaming || selectedConversation?.status === "cancelled"
+                }
               />
-              <div className="flex flex-wrap justify-between gap-2">
+              <div className="mt-3 flex flex-wrap justify-between gap-2">
+                {isStreaming ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleStopStream}
+                  >
+                    <Ban className="h-4 w-4" />
+                    Stop stream
+                  </Button>
+                ) : (
+                  <div />
+                )}
                 <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCancel}
-                  disabled={!isStreaming && !selectedId}
+                  type="submit"
+                  disabled={
+                    isStreaming || selectedConversation?.status === "cancelled"
+                  }
                 >
-                  <Ban className="h-4 w-4" />
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isStreaming || selectedConversation?.status === "cancelled"}>
                   <Send className="h-4 w-4" />
                   Send
                 </Button>
@@ -330,14 +409,19 @@ function ConversationList({
   onNew: () => void;
 }) {
   return (
-    <Card className="sketch-panel min-h-[620px]">
-      <CardHeader className="flex flex-row items-center justify-between gap-2">
+    <Card className="sketch-panel flex min-h-[360px] flex-col lg:min-h-0">
+      <CardHeader className="flex shrink-0 flex-row items-center justify-between gap-2">
         <CardTitle>Conversations</CardTitle>
-        <Button title="New conversation" size="icon" variant="secondary" onClick={onNew}>
+        <Button
+          title="New conversation"
+          size="icon"
+          variant="secondary"
+          onClick={onNew}
+        >
           <MessageSquarePlus className="h-4 w-4" />
         </Button>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
         {conversations.length ? (
           conversations.map((conversation) => (
             <button
@@ -349,8 +433,12 @@ function ConversationList({
               onClick={() => onSelect(conversation.id)}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="line-clamp-1 text-sm font-black">{conversation.title}</span>
-                <Badge tone={conversation.status === "cancelled" ? "red" : "green"}>
+                <span className="line-clamp-1 text-sm font-black">
+                  {conversation.title}
+                </span>
+                <Badge
+                  tone={conversation.status === "cancelled" ? "red" : "green"}
+                >
                   {conversation.status}
                 </Badge>
               </div>
@@ -386,15 +474,20 @@ function MessageBubble({ message }: { message: DraftMessage }) {
 }
 
 function DashboardPanel({ dashboard }: { dashboard: DashboardSummary }) {
+  const maxThroughput = Math.max(
+    1,
+    ...dashboard.throughput.map((point) => point.requests),
+  );
+
   return (
-    <Card className="sketch-panel min-h-[620px]">
-      <CardHeader>
+    <Card className="sketch-panel flex min-h-[520px] flex-col lg:min-h-0">
+      <CardHeader className="shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle>Dashboards</CardTitle>
           <Activity className="h-5 w-5" />
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         <MetricGrid dashboard={dashboard} />
 
         <div className="border-2 border-ink bg-white p-3">
@@ -405,13 +498,20 @@ function DashboardPanel({ dashboard }: { dashboard: DashboardSummary }) {
           <div className="flex flex-col gap-2">
             {dashboard.models.length ? (
               dashboard.models.map((model) => (
-                <div key={`${model.provider}-${model.model}`} className="border-2 border-ink bg-paper p-3">
+                <div
+                  key={`${model.provider}-${model.model}`}
+                  className="border-2 border-ink bg-paper p-3"
+                >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="line-clamp-1 text-xs font-black">{model.model}</span>
-                    <Badge tone={model.errors ? "red" : "green"}>{model.requests}</Badge>
+                    <span className="line-clamp-1 text-xs font-black">
+                      {model.model}
+                    </span>
+                    <Badge tone={model.errors ? "red" : "green"}>
+                      {model.requests}
+                    </Badge>
                   </div>
                   <div className="mt-2 grid grid-cols-3 gap-2 text-xs font-bold text-neutral-700">
-                    <span>{model.avg_latency_ms} ms</span>
+                    <span>Avg {model.avg_latency_ms} ms</span>
                     <span>{model.errors} errors</span>
                     <span>{model.total_tokens} tokens</span>
                   </div>
@@ -428,16 +528,23 @@ function DashboardPanel({ dashboard }: { dashboard: DashboardSummary }) {
         <div className="border-2 border-ink bg-white p-3">
           <div className="mb-3 flex items-center gap-2 text-sm font-black">
             <ListRestart className="h-4 w-4" />
-            Throughput
+            Throughput / minute
           </div>
-          <div className="flex h-28 items-end gap-1">
+          <div className="flex h-24 items-end gap-1">
             {dashboard.throughput.length ? (
               dashboard.throughput.map((point) => (
                 <div
                   key={point.minute}
-                  title={`${point.requests} requests`}
-                  className="min-h-2 flex-1 border-2 border-ink bg-sky"
-                  style={{ height: `${Math.max(8, point.requests * 18)}px` }}
+                  title={`${minuteLabel(point.minute)}: ${point.requests} requests, ${point.errors} errors`}
+                  className={cn(
+                    "flex-1 border-2 border-ink",
+                    point.requests ? "bg-sky" : "bg-paper opacity-50",
+                  )}
+                  style={{
+                    height: point.requests
+                      ? `${Math.max(10, (point.requests / maxThroughput) * 92)}px`
+                      : "4px",
+                  }}
                 />
               ))
             ) : (
@@ -467,16 +574,21 @@ function DashboardPanel({ dashboard }: { dashboard: DashboardSummary }) {
 
 function MetricGrid({ dashboard }: { dashboard: DashboardSummary }) {
   const metrics = [
-    ["Requests", dashboard.total_requests.toString(), "bg-marker"],
+    ["Total requests", dashboard.total_requests.toString(), "bg-marker"],
     ["Error rate", `${dashboard.error_rate}%`, "bg-coral"],
-    ["Latency", `${dashboard.avg_latency_ms} ms`, "bg-mint"],
-    ["Tokens", dashboard.total_tokens.toString(), "bg-sky"],
+    ["Avg latency", `${dashboard.avg_latency_ms} ms`, "bg-mint"],
+    ["Total tokens", dashboard.total_tokens.toString(), "bg-sky"],
   ];
   return (
     <div className="grid grid-cols-2 gap-3">
       {metrics.map(([label, value, color]) => (
-        <div key={label} className={cn("border-2 border-ink p-3 shadow-sketchSoft", color)}>
-          <div className="text-xs font-black uppercase tracking-normal">{label}</div>
+        <div
+          key={label}
+          className={cn("border-2 border-ink p-3 shadow-sketchSoft", color)}
+        >
+          <div className="text-xs font-black uppercase tracking-normal">
+            {label}
+          </div>
           <div className="mt-1 text-xl font-black">{value}</div>
         </div>
       ))}
@@ -502,4 +614,11 @@ function draftMessage(
 
 function messageFromError(reason: unknown) {
   return reason instanceof Error ? reason.message : "Request failed";
+}
+
+function minuteLabel(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
