@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "name": "tracechat-ledger",
+  "workspaces": [
+    "apps/web"
+  ],
+  "overrides": {
+    "postcss": "^8.5.10"
+  },
+  "scripts": {
+    "lint:web": "npm --workspace apps/web run lint",
+    "typecheck:web": "npm --workspace apps/web run typecheck"
+  }
+}

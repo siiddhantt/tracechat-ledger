@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "Trebuchet MS";
+  --font-sans: "Inter", ui-sans-serif, system-ui;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: #171717;
+  background:
+    linear-gradient(rgba(23, 23, 23, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 23, 23, 0.06) 1px, transparent 1px),
+    #fffaf0;
+  background-size: 28px 28px;
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+textarea,
+select {
+  border-radius: 6px;
+}
+
+::selection {
+  background: #fff176;
+}
+
+.sketch-panel {
+  position: relative;
+}
+
+.sketch-panel::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 4px -4px -4px 4px;
+  border: 2px solid #171717;
+  opacity: 0.35;
+  z-index: -1;
+}
+
+.message-user {
+  background: #a7d8ff;
+}
+
+.message-assistant {
+  background: #ffffff;
+}
